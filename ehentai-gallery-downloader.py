@@ -14,6 +14,8 @@ NOTES:
 happened yet.
 """
 
+from sys import argv
+from sys import exit
 from urllib.request import urlopen
 from urllib.request import urlretrieve
 from urllib.parse import urlparse
@@ -25,14 +27,19 @@ import re
 class GalleryParser(HTMLParser):
     # This class parses out individual page URLs from a given
     # gallery and feeds each URL to the GalleryPageParser.
-    def __init__(self):
+    def __init__(self, gallery_url):
         HTMLParser.__init__(self)
+        self.gallery_url = urlparse(gallery_url)
+        self.gallery_url = self.gallery_url[0] + "://" + ''.join(self.gallery_url[1:3])
         self.found_title = False
         self.title_saved = False
         self.page_parser = GalleryPageParser()
         self.page_urls = {gallery_url}
         # we have to put the individual page links in a set
         # because they appear multiple times in a gallery.
+        self.feed(urlopen(self.gallery_url).read().decode())
+        self.feed_page_parser()
+
 
     def feed_page_parser(self):
         for url in self.page_urls:
@@ -103,25 +110,14 @@ class ImageParser(HTMLParser):
         if tag != 'img':
             return
         if ImageParser.is_raw_img_url(attrs[0][1]):
-            global downloaded_images
-            downloaded_images += 1
             self.raw_img_url = attrs[0][1]
             self.save_name= ImageParser.get_savename(self.raw_img_url)
-            print("Page %d of ?:" % self.downloaded_images)
-            # TODO: Fix this^ print statement and actually tell the user
-            # how many pages the gallery contains.
-            print(self.save_name + "\n")
             urlretrieve(self.raw_img_url, save_folder + self.save_name)
 
 save_folder = ""
 
-gallery_url = input("Enter the URL of the gallery you would like to download: ")
-gallery_url = urlparse(gallery_url)
-gallery_url = gallery_url[0] + "://" + ''.join(gallery_url[1:3])
+if len(argv) < 2:
+    exit("ERROR: no gallery URL provided")
 
-downloaded_images = 0
-gallery_parser = GalleryParser()
-
-gallery_parser.feed(urlopen(gallery_url).read().decode())
-gallery_parser.feed_page_parser()
-print("Downloaded %d images" % downloaded_images)
+for i in argv[1:]:
+    GalleryParser(i)
